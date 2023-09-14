@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "konekti"
+name = "swc-plugin-module-exports"
 version = "0.1.0"
