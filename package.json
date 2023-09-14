@@ -1,0 +1,23 @@
+{
+    "private": true,
+    "name": "konekti",
+    "version": "1.0.0",
+    "description": "A crate with multiple plugins.",
+    "workspaces": [
+        "packages/*"
+    ],
+    "keywords": [
+        "plugins",
+        "extensions"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/timbo-dev/konekti.git"
+    },
+    "author": {
+        "email": "dev@nathanrocha.com.br",
+        "url": "https://github.com/timbo-dev",
+        "name": "Nathan Rocha"
+    },
+    "license": "MIT"
+}
