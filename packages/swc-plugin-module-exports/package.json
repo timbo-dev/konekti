@@ -1,6 +1,6 @@
 {
     "name": "@konekti/swc-plugin-module-exports",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Plugin to fix swc export all swc transform",
     "author": {
         "email": "dev@timbo.me",
