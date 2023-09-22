@@ -35,8 +35,8 @@ This documentation is divided into several sections that represent the packages.
 
 ## Packages
 
-| Packages                                                                              | Last Version | Github                                                                                                                              | Npm                                                                                                    |
-| ------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Packages                                                                                                                    | Last Version | Github                                                                                                                                                 | Npm                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | [@konekti/swc-plugin-module-exports](https://timbo-dev.github.io/konekti/packages/swc-plugin-module-exports/#konekti-either)| `1.0.0`      | <a href="https://github.com/timbo-dev/konekti/tree/main/packages/swc-plugin-module-exports"><img src="./docs/assets/github.svg" alt="Github Icon"></a> | <a href="https://npmjs.com/package/@konekti/swc-plugin-module-exports"><img src="docs/assets/npm.svg" alt="Npm Icon"></a> |
 
 ## License
