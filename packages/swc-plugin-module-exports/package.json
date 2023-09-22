@@ -1,0 +1,25 @@
+{
+    "name": "@konekti/swc-plugin-module-exports",
+    "version": "1.0.0",
+    "description": "Plugin to fix swc export all swc transform",
+    "author": "Nathan Rocha <dev@nathanrocha.com.br> (https://github.com/timbo-dev)",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/timbo-dev/konekti.git",
+        "directory": "packages/swc-swc_plugin_module_exports"
+    },
+    "license": "MIT",
+    "keywords": [
+        "swc-plugin"
+    ],
+    "main": "lib/swc_plugin_module_exports.wasm",
+    "scripts": {
+        "build": "../../scripts/build/rust/build_all.sh",
+        "prepack": "bun run build && mkdir -p ./lib && cp ../../target/wasm32-wasi/release/swc_plugin_module_exports.wasm ./lib"
+    },
+    "preferUnplugged": true,
+    "bugs": {
+        "url": "https://github.com/timbo-dev/konekti/issues"
+    },
+    "homepage": "https://github.com/timbo-dev/konekti#readme"
+}

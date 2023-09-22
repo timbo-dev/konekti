@@ -1,0 +1,17 @@
+[package]
+authors = ["timbo-dev"]
+name = "swc-plugin-module-exports"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = "1"
+swc_atoms = "0.5.9"
+swc_core = { version = "0.83.*", features = ["ecma_plugin_transform"] }
+swc_ecma_ast = "0.109.1"
+swc_ecma_utils = "0.120.20"
+swc_ecma_visit = "0.95.1"
+swc_plugin_macro = "0.9.15"

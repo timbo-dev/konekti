@@ -1,0 +1,25 @@
+# node
+node_modules
+**/lib
+Makefile.mjs
+
+# build
+/target
+*.wasm
+
+# docs
+cache
+dist
+docs/packages/**/*.md
+!docs/packages/index.md
+
+# vscode
+.vscode
+
+# stryker temp files
+.stryker-tmp
+reports
+
+# e2e tests files and folders
+e2e_tasks
+e2e
