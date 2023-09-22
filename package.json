@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "konekti",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A crate with multiple plugins.",
   "scripts": {
     "build:rust": "./scripts/build/rust/build_all.sh",
