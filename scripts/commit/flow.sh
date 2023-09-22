@@ -162,9 +162,9 @@ release() {
 
             git branch -D release/$target
             git checkout develop
-            git push --tags
-            git push origin develop
             git push origin main
+            git push origin develop
+            git push --tags
         fi
     }
 

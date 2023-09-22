@@ -1,8 +1,12 @@
 {
     "name": "@konekti/swc-plugin-module-exports",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Plugin to fix swc export all swc transform",
-    "author": "Nathan Rocha <dev@nathanrocha.com.br> (https://github.com/timbo-dev)",
+    "author": {
+        "email": "dev@timbo.me",
+        "url": "https://github.com/timbo-dev",
+        "name": "Nathan Rocha"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/timbo-dev/konekti.git",
@@ -21,5 +25,5 @@
     "bugs": {
         "url": "https://github.com/timbo-dev/konekti/issues"
     },
-    "homepage": "https://github.com/timbo-dev/konekti#readme"
+    "homepage": "https://konekti.timbo.me/packages/swc-plugin-module-exports/"
 }
