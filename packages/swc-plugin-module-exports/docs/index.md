@@ -39,7 +39,7 @@ $ bun add @konekti/swc-plugin-module-exports -D
 
 The package "swc-plugin-module-exports" is a plugin that resolves the erroneous transpilation of the default CommonJS export in swc.
 
-# Usage
+## Usage
 
 Place the following configuration in your `.swcrc` file:
 
