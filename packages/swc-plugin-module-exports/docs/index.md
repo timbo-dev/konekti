@@ -13,7 +13,7 @@ footer: true
 
 | Package                                                                   | Last Version                            | Github                                                                                              | Npm                                                                         |
 | ------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [@konekti/swc-plugin-module-exports](/packages/swc-plugin-module-exports/)| <Badge type="tip" text="1.0.1" />       | <Github link="https://github.com/timbo-dev/konekti/tree/main/packages/swc-plugin-module-exports" /> | <Npm link="https://npmjs.com/package/@konekti/swc-plugin-module-exports" /> |
+| [@konekti/swc-plugin-module-exports](/packages/swc-plugin-module-exports/)| <Badge type="tip" text="1.0.2" />       | <Github link="https://github.com/timbo-dev/konekti/tree/main/packages/swc-plugin-module-exports" /> | <Npm link="https://npmjs.com/package/@konekti/swc-plugin-module-exports" /> |
 
 ::: code-group
 
