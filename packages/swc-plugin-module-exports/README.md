@@ -2,7 +2,7 @@
 
 | Package                                                                                           | Last Version | Github                                                                                                                                                                  | Npm                                                                                                                                          |
 | ------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [@konekti/swc-plugin-module-exports](https://konekti.timbo.me/packages/swc-plugin-module-exports/)| `1.0.1`      | <a href="https://github.com/timbo-dev/konekti/tree/main/packages/swc-plugin-module-exports"><img src="https://konekti.timbo.me/media/github.svg" alt="Github Icon"></a> | <a href="https://npmjs.com/package/@konekti/swc-plugin-module-exports"><img src="https://konekti.timbo.me/media/npm.svg" alt="Npm Icon"></a> |
+| [@konekti/swc-plugin-module-exports](https://konekti.timbo.me/packages/swc-plugin-module-exports/)| `1.0.2`      | <a href="https://github.com/timbo-dev/konekti/tree/main/packages/swc-plugin-module-exports"><img src="https://konekti.timbo.me/media/github.svg" alt="Github Icon"></a> | <a href="https://npmjs.com/package/@konekti/swc-plugin-module-exports"><img src="https://konekti.timbo.me/media/npm.svg" alt="Npm Icon"></a> |
 
 
 ## Installation
