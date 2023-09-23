@@ -1,7 +1,7 @@
 [package]
 authors = ["timbo-dev"]
 name = "swc-plugin-module-exports"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 
 [lib]
