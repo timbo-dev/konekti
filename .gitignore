@@ -26,3 +26,6 @@ e2e
 
 # swc
 .swc
+
+# test files
+test_folder
