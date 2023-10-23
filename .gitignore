@@ -23,3 +23,6 @@ reports
 # e2e tests files and folders
 e2e_tasks
 e2e
+
+# swc
+.swc
