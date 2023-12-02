@@ -1,519 +1,228 @@
-use swc_core::common::DUMMY_SP;
-use swc_core::ecma::visit::{VisitMutWith, Visit};
-use swc_ecma_quote::{quote, quote_expr};
+use swc_core::plugin::{
+    plugin_transform,
+    proxies::TransformPluginProgramMetadata
+};
+
 use swc_core::ecma::{
     ast::*,
     visit::VisitMut,
     atoms::JsWord
 };
-use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata};
+
+use swc_core::common::{DUMMY_SP, AstNode};
+use swc_core::ecma::visit::{VisitMutWith, self};
 use swc_ecma_utils::quote_ident;
+
+use swc_ecma_quote::{
+    quote,
+    quote_expr
+};
 
 const PROGRAM_TOP_INDEX: usize = 0;
 const PROGRAM_VOID_STMT_INDEX: usize = 1;
 
-pub struct AstNodeIndexManager {
-    export_decl_index: usize,
-    export_default_decl_index: usize,
-    export_default_expr_index: usize,
-    export_default_ident_index: usize
-}
-
-impl AstNodeIndexManager {
-    fn init_export_decl_index(&mut self, position: usize) {
-        self.export_decl_index = position;
-    }
-
-    fn init_export_default_decl_index(&mut self, position: usize) {
-        self.export_default_decl_index = position;
-    }
-
-    fn init_export_default_expr_index(&mut self, position: usize) {
-        self.export_default_expr_index = position;
-    }
-
-    fn increment_export_decl_index(&mut self) {
-        self.export_decl_index += 1;
-    }
-
-    fn increment_export_default_decl_index(&mut self) {
-        self.export_default_decl_index += 1;
-    }
-
-    fn increment_export_default_ident_index(&mut self) {
-        self.export_default_ident_index += 1;
-    }
-
-    fn increment_export_default_expr_index(&mut self) {
-        self.export_default_expr_index += 1;
-    }
-
-    fn get_export_decl_index(&self) -> usize {
-        self.export_decl_index
-    }
-
-    fn get_export_default_decl_index(&self) -> usize {
-        self.export_default_decl_index
-    }
-
-    fn get_export_default_ident_index(&self) -> usize {
-        self.export_default_ident_index
-    }
-
-    fn get_export_default_expr_index(&self) -> usize {
-        self.export_default_expr_index
+macro_rules! impl_node_type {
+    (for $($t:ty),+) => {
+        $(impl NodeType for $t {})*
     }
 }
 
-pub struct ModuleExportsVisitor {
-    updated_body: Vec<ModuleItem>,
-    indexes: AstNodeIndexManager,
-    has_void_stmt: bool,
-    has_module_exports_stmt: bool
+
+pub trait NodeType {}
+
+impl_node_type!(
+    for
+    Class
+);
+
+pub struct PluginModuleExports {
+    pub updated_body: Vec<ModuleItem>,
+
+    pub has_module_exports_stmt: bool,
+    pub has_void_stmt: bool
 }
 
-impl ModuleExportsVisitor {
-    fn append_module_exports_stmt(&mut self) {
-        if !self.has_module_exports_stmt {
-            self.has_module_exports_stmt = true;
-            self.updated_body.insert(PROGRAM_TOP_INDEX, quote!(
-                r#"Object.defineProperty(exports, "__esModule", { value: true });"#
-            as ModuleItem));
+fn create_plugin_module_exports() -> impl VisitMut {
+    PluginModuleExports {
+        updated_body: vec![],
+
+        has_module_exports_stmt: false,
+        has_void_stmt: false
+    }
+}
+
+impl PluginModuleExports {
+    fn get_index(&self, module: &ModuleItem) -> usize {
+        self.updated_body
+            .iter()
+            .position(|node| node == module)
+            .expect("Cannot get index of a node.")
+    }
+
+    fn increment(&self, index: &mut usize) {
+        *index += 1;
+    }
+
+    fn append_module_exports_stmt(&mut self, index: &usize) {
+        self.has_module_exports_stmt = true;
+
+        self.updated_body.insert(*index, quote!(
+            r#"Object.defineProperty(exports, "__esModule", { value: true });"# as ModuleItem
+        ))
+    }
+
+    fn append_void_stmt(&mut self, index: &usize, ident: &Ident) {
+        fn create_void_stmt(ident: &Ident) -> ModuleItem {
+            quote!(
+                "exports.$identifier = void 0;" as ModuleItem,
+                identifier = ident.clone()
+            )
         }
-    }
 
-    fn append_export_stmt_with_value_as_ident(&mut self, ident: &mut Ident) {
-        self.updated_body.insert(
-            self.indexes.get_export_decl_index(),
-            quote!(
-                "exports.$ident = $value_as_ident;" as ModuleItem,
-                ident = ident.clone(),
-                value_as_ident = ident.clone()
-            )
-        )
-    }
-
-    fn append_export_stmt_with_value(&mut self, ident: &mut Ident, value: &Box<Expr>, position: usize) {
-        self.updated_body.insert(
-            position,
-            quote!(
-                "exports.$ident = $value;" as ModuleItem,
-                ident = ident.clone(),
-                value: Expr = *value.clone(),
-            )
-        )
-    }
-
-    fn append_void_stmt(&mut self, ident: &Ident) {
-        fn create_void_stmt(ident: &Ident) -> Box<Expr> {
+        fn create_void_stmt_as_expr(ident: &Ident) -> Box<Expr> {
             quote_expr!(
-                "exports.$name = void 0;",
-                name = ident.clone()
+                "exports.$identifier = void 0;",
+                identifier = ident.clone()
             )
         }
 
         if !self.has_void_stmt {
+
+            self.updated_body.insert(
+                *index,
+                create_void_stmt(ident)
+            );
+
             self.has_void_stmt = true;
 
-            self.updated_body.insert(PROGRAM_VOID_STMT_INDEX, ModuleItem::Stmt(Stmt::Expr(ExprStmt {
-                span: DUMMY_SP,
-                expr: create_void_stmt(ident)
-            })));
-        } else {
-            if let ModuleItem::Stmt(Stmt::Expr(ref mut expr_stmt)) = &mut self.updated_body[PROGRAM_VOID_STMT_INDEX] {
-                if let Expr::Assign(ref mut assign_expr) = &mut *expr_stmt.expr {
-                    let mut previous_assign_expr = assign_expr;
+            return;
+        }
 
-                    loop {
-                        if let Expr::Assign(ref mut next_assign_expr) = *previous_assign_expr.right {
-                            previous_assign_expr = next_assign_expr;
-                        } else {
-                            previous_assign_expr.right = create_void_stmt(ident);
-                            break;
-                        }
+        if let ModuleItem::Stmt(Stmt::Expr(ref mut expr_stmt)) = self.updated_body[*index] {
+            if let Expr::Assign(ref mut assign_expr) = &mut *expr_stmt.expr {
+                let mut previous_assign_expr = assign_expr;
+
+                loop {
+                    if let Expr::Assign(ref mut next_assign_expr) = *previous_assign_expr.right {
+                        previous_assign_expr = next_assign_expr;
+                    } else {
+                        previous_assign_expr.right = create_void_stmt_as_expr(ident);
+                        break;
                     }
                 }
             }
         }
     }
 
-    fn update_module_body(&self, module_to_update: &mut Module) {
-        module_to_update.body = self.updated_body.clone();
+    fn remove_by_index(&mut self, index: &usize) {
+        self.updated_body.remove(*index);
     }
 
-    fn get_module_item_position(&self, module_item: &ModuleItem) -> usize {
-        let search_result       = self.updated_body
-            .iter()
-            .position(|node| module_item == node);
-
-        search_result.unwrap()
-    }
-}
-
-pub fn create_module_exports_visitor() -> impl VisitMut {
-    ModuleExportsVisitor {
-        updated_body: vec![],
-        indexes: AstNodeIndexManager {
-            export_decl_index: 0,
-            export_default_decl_index: 0,
-            export_default_expr_index: 0,
-            export_default_ident_index: 0
-        },
-        has_void_stmt: false,
-        has_module_exports_stmt: false
+    fn remove_by_node(&mut self, node: &ModuleItem) {
+        self.updated_body
+            .retain(|body_node| {
+                body_node == node
+            })
     }
 }
 
-impl VisitMut for ModuleExportsVisitor {
+impl VisitMut for PluginModuleExports {
     fn visit_mut_module(&mut self, module: &mut Module) {
-        let initial_body = module.body.clone();
-        self.updated_body = initial_body;
+        self.updated_body = module.body.clone();
 
         module.visit_mut_children_with(self);
 
-        self.update_module_body(module);
+        module.body = self.updated_body.clone();
     }
 
     fn visit_mut_export_decl(&mut self, export_decl: &mut ExportDecl) {
-        let initial_export_decl_position = self.get_module_item_position(&ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl.clone())));
-        self.indexes.init_export_decl_index(initial_export_decl_position);
+        let node_from_module = &ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl.clone()));
+        let mut export_decl_index = self.get_index(node_from_module);
 
         if !self.has_module_exports_stmt {
-            self.indexes.increment_export_decl_index();
+            self.increment(&mut export_decl_index);
+            self.append_module_exports_stmt(&PROGRAM_TOP_INDEX);
         }
 
-        self.append_module_exports_stmt();
+        if !self.has_void_stmt {
+            self.increment(&mut export_decl_index);
+        }
 
         match &mut export_decl.decl {
+            _ => {},
+            
             Decl::Class(class_decl) => {
-                let ident = &mut class_decl.ident.clone();
-
-                if !self.has_void_stmt {self.indexes.increment_export_decl_index();}
-                self.append_void_stmt(ident);
-
-                self.updated_body.insert(
-                    self.indexes.get_export_decl_index(),
-                    ModuleItem::Stmt(Stmt::Decl(Decl::Class(
-                        class_decl.clone()
-                    )))
-                );
-
-                self.indexes.increment_export_decl_index();
-
-                self.append_export_stmt_with_value_as_ident(ident);
-                self.indexes.increment_export_decl_index()
+                self.append_void_stmt(
+                    &PROGRAM_VOID_STMT_INDEX,
+                    &class_decl.ident
+                )
             }
 
             Decl::Fn(func_decl) => {
-                let ident = &mut func_decl.ident.clone();
-
-                if !self.has_void_stmt { self.indexes.increment_export_decl_index() }
-                self.append_void_stmt(ident);
-
-                self.updated_body.insert(
-                    self.indexes.get_export_decl_index(),
-                    ModuleItem::Stmt(Stmt::Decl(Decl::Fn(
-                        func_decl.clone()
-                    )))
-                );
-
-                self.indexes.increment_export_decl_index();
-
-                self.append_export_stmt_with_value_as_ident(ident);
-                self.indexes.increment_export_decl_index()
+                self.append_void_stmt(
+                    &PROGRAM_VOID_STMT_INDEX,
+                    &func_decl.ident
+                )
             }
 
             Decl::Var(var_decl) => {
                 for decl in &mut var_decl.decls {
-                    if let Pat::Ident(ref decl_binding_ident) = decl.name {
-                        let ident = &mut decl_binding_ident.id.clone();
+                    if let Pat::Ident(ref binding_ident) = decl.name {
+                        let ident = &binding_ident.id;
 
-                        if !self.has_void_stmt { self.indexes.increment_export_decl_index() }
-                        self.append_void_stmt(ident);
+                        self.append_void_stmt(
+                            &PROGRAM_VOID_STMT_INDEX,
+                            ident
+                        );
 
-                        if let Option::Some(some_init) = &decl.init {
-
-                            fn create_var_decl(parent_self: &mut ModuleExportsVisitor, element: ModuleItem) {
-                                parent_self.updated_body.insert(
-                                    parent_self.indexes.get_export_decl_index(),
-                                    element
-                                )
+                        if let Option::Some(init) = &decl.init {
+                            pub struct VarStmt {
+                                
                             }
 
-                            match &**some_init {
+                            fn create_var_stmt<T>(kind: &VarDeclKind, node: &ModuleItem, value: &T) where T: AstNode {
+                                match kind {
+                                    VarDeclKind::Var => {
+
+                                    },
+
+                                    VarDeclKind::Let => {
+
+                                    },
+
+                                    VarDeclKind::Const => {
+
+                                    }
+                                }
+                            }
+
+                            let var_decl_clone = decl.clone();
+
+                            match &**init {
+                                _ => {},
+
                                 Expr::Class(class_expr) => {
-                                    match var_decl.kind {
-                                        VarDeclKind::Const => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "const $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Class(class_expr.clone())
-                                            )),
-                                        VarDeclKind::Let => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "let $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Class(class_expr.clone())
-                                            )),
-                                        VarDeclKind::Var => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "var $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Class(class_expr.clone())
-                                            )),
-                                    }
-
-                                    self.indexes.increment_export_decl_index();
-
-                                    self.append_export_stmt_with_value_as_ident(ident);
-                                    self.indexes.increment_export_decl_index()
-                                }
-
-                                Expr::Fn(func_expr) => {
-                                    match var_decl.kind {
-                                        VarDeclKind::Const => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "const $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Fn(func_expr.clone())
-                                            )),
-                                        VarDeclKind::Let => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "let $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Fn(func_expr.clone())
-                                            )),
-                                        VarDeclKind::Var => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "var $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Fn(func_expr.clone())
-                                            )),
-                                    }
-
-                                    self.indexes.increment_export_decl_index();
-
-                                    self.append_export_stmt_with_value_as_ident(ident);
-                                    self.indexes.increment_export_decl_index()
-                                }
-
-                                Expr::Arrow(arrow_expr) => {
-                                    match var_decl.kind {
-                                        VarDeclKind::Const => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "const $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Arrow(arrow_expr.clone())
-                                            )),
-                                        VarDeclKind::Let => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "let $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Arrow(arrow_expr.clone())
-                                            )),
-                                        VarDeclKind::Var => create_var_decl(
-                                            self,
-                                             quote!(
-                                                "var $ident = $value;" as ModuleItem,
-                                                ident = ident.clone(),
-                                                value: Expr = Expr::Arrow(arrow_expr.clone())
-                                            )),
-                                    }
-
-                                    self.indexes.increment_export_decl_index();
-
-                                    self.append_export_stmt_with_value_as_ident(ident);
-                                    self.indexes.increment_export_decl_index()
-                                }
-
-                                _ => {
-                                    self.append_export_stmt_with_value(
-                                        ident,
-                                        some_init,
-                                        self.indexes.get_export_decl_index()
-                                    );
-                                    self.indexes.increment_export_decl_index();
-                                }
-                            }
-                        } else {
-                            // This code below is to ensure enum declarations will be correct
-                            // The Decl::TsEnum match not working as expected.
-
-                            if self.updated_body.len() > self.indexes.get_export_decl_index() + 1 {
-                                let enum_decl = &mut self.updated_body[self.indexes.get_export_decl_index() + 1];
-
-                                if let ModuleItem::Stmt(Stmt::Expr(expr_stmt)) = enum_decl {
-                                    if let Expr::Call(ref mut call_expr) = *expr_stmt.expr {
-                                        for arg in &mut call_expr.args {
-                                            if let Expr::Bin(ref mut bin_expr) = *arg.expr {
-                                                bin_expr.right = quote_expr!(
-                                                    "(exports.$ident = $ident_as_value = {})",
-                                                    ident = ident.clone(),
-                                                    ident_as_value = ident.clone()
-                                                );
-                                            }
-                                        }
-                                    }
+                                    create_var_stmt(
+                                        &var_decl.kind,
+                                        &quote!(
+                                            "let teste;" as ModuleItem
+                                        ),
+                                        class_expr
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-
-            _ => {}
         }
 
-        self.updated_body.remove(self.indexes.get_export_decl_index());
-    }
-
-    fn visit_mut_export_default_decl(&mut self, export_default_decl: &mut ExportDefaultDecl) {
-        let initial_export_default_decl_position = self.get_module_item_position(&ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(export_default_decl.clone())));
-        self.indexes.init_export_default_decl_index(initial_export_default_decl_position);
-
-        if !self.has_module_exports_stmt {
-            self.indexes.increment_export_default_decl_index();
-        }
-
-        self.append_module_exports_stmt();
-
-        match &mut export_default_decl.decl {
-            DefaultDecl::Class(class_decl) => {
-                if let Option::Some(ref some_ident) = class_decl.ident {
-                    self.updated_body.insert(
-                        self.indexes.get_export_default_decl_index(),
-                        ModuleItem::Stmt(Stmt::Decl(Decl::Class(
-                            ClassDecl {
-                                ident: some_ident.clone(),
-                                declare: false,
-                                class: class_decl.class.clone()
-                            }
-                        )))
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-
-                    self.append_export_stmt_with_value(
-                        &mut quote_ident!("default"),
-                        &Box::new(Expr::Ident(some_ident.clone())),
-                        self.indexes.get_export_default_decl_index()
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-                } else {
-                    self.indexes.increment_export_default_ident_index();
-
-                    let default_ident = Ident {
-                        span: DUMMY_SP,
-                        sym: JsWord::from(format!("default_{}", self.indexes.get_export_default_ident_index())),
-                        optional: false
-                    };
-
-                    self.updated_body.insert(
-                        self.indexes.get_export_default_decl_index(),
-                        ModuleItem::Stmt(Stmt::Decl(Decl::Class(
-                            ClassDecl {
-                                ident: default_ident.clone(),
-                                declare: false,
-                                class: class_decl.class.clone()
-                            }
-                        )))
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-
-                    self.append_export_stmt_with_value(
-                        &mut quote_ident!("default"),
-                        &Box::new(Expr::Ident(default_ident.clone())),
-                        self.indexes.get_export_default_decl_index()
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-                }
-            }
-
-            DefaultDecl::Fn(func_decl) => {
-                if let Option::Some(ref some_ident) = func_decl.ident {
-                    self.updated_body.insert(
-                        self.indexes.get_export_default_decl_index(),
-                        ModuleItem::Stmt(Stmt::Decl(Decl::Fn(
-                            FnDecl {
-                                ident: some_ident.clone(),
-                                declare: false,
-                                function:func_decl.function.clone()
-                            }
-                        )))
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-
-                    self.append_export_stmt_with_value(
-                        &mut quote_ident!("default"),
-                        &Box::new(Expr::Ident(some_ident.clone())),
-                        self.indexes.get_export_default_decl_index()
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-                } else {
-                    self.indexes.increment_export_default_ident_index();
-
-                    let default_ident = Ident {
-                        span: DUMMY_SP,
-                        sym: JsWord::from(format!("default_{}", self.indexes.get_export_default_ident_index())),
-                        optional: false
-                    };
-
-                    self.updated_body.insert(
-                        self.indexes.get_export_default_decl_index(),
-                        ModuleItem::Stmt(Stmt::Decl(Decl::Fn(
-                            FnDecl {
-                                ident: default_ident.clone(),
-                                declare: false,
-                                function: func_decl.function.clone()
-                            }
-                        )))
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-
-                    self.append_export_stmt_with_value(
-                        &mut quote_ident!("default"),
-                        &Box::new(Expr::Ident(default_ident.clone())),
-                        self.indexes.get_export_default_decl_index()
-                    );
-
-                    self.indexes.increment_export_default_decl_index();
-                }
-            }
-
-            _ => {}
-        }
-
-        self.updated_body.remove(self.indexes.get_export_default_decl_index());
-    }
-
-    fn visit_mut_export_default_expr(&mut self, export_default_expr: &mut ExportDefaultExpr) {
-        let initial_export_default_expr_position = self.get_module_item_position(&ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(export_default_expr.clone())));
-        self.indexes.init_export_default_decl_index(initial_export_default_expr_position);
-
-        if !self.has_module_exports_stmt {
-            self.indexes.increment_export_default_decl_index();
-        }
-
-        self.append_module_exports_stmt();
+        self.remove_by_index(&export_decl_index);
     }
 }
 
 #[plugin_transform]
 pub fn module_exports_transform(mut program: Program, _metadata: TransformPluginProgramMetadata) -> Program {
-    program.visit_mut_with(&mut create_module_exports_visitor());
+    program.visit_mut_with(&mut create_plugin_module_exports());
     program
 }
